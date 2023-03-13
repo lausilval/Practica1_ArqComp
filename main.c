@@ -9,34 +9,58 @@
 #include <pmmintrin.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 
-// Constantes
-#define CLS 64      // tamaño en bytes de la linea cache
-//Funciones para calcular los ciclos de reloj
+/// Constantes
 
+#define S1 (64 * 8)     // S1 --> nº de lineas cache que caben en la cache L1 de datos
+#define S2 (1024 * 4)   // S2 --> nº de lineas cache que caben en la cache L2
+#define CLS 64          // tamaño en bytes de la linea cache
+
+/// Funciones para calcular los ciclos de reloj
 void start_counter();
 double get_counter();
 double mhz();
 
 /* Initialize the cycle counter */
-
-
 static unsigned cyc_hi = 0;
 static unsigned cyc_lo = 0;
 
 
 // Programa Principal
-int main() {
-    // Variables
-    double *A;          // vector de nºs aleatorios en el rango [0,1]
+int main(int argc, char * argv[]) {
+    /// Variables
+    double *A;          // vector de nºs aleatorios en el rango [1,2)
     int *ind;           // vector que hace referencia a los elementos del tipo A[ind[i]], con ind[i] = 0, D, 2D, 3D...
-    int R = 4;          // numero de elementos del vector
-    int D = 2;          // numero por el que vamos a multiplicar los R numeros del array
+    int R;              // numero de elementos del vector A a los que se accede
+    int D;              // numero por el que vamos a multiplicar los R numeros del array
+    // numero de linas cache que se leeran en el acceso al vector A
+    int L[] = {0.5*S1,1.5*S1, 0.5*S2, 0.75*S2, 2*S2, 4*S2, 8*S2};
     double S[10];       // vector donde se almacenaran los resultados de cada repetición
     double suma;        // variable auxiliar para almacenar las reducciones
 
     double ck;          // tiempo de las 10 reducciones
     double ck_reloj;    // tiempo de los ciclos de reloj
+
+    /// Comprobación de que se pasan el número de parametros correcto
+    // El programa debe aceptar 2 parámetros como argumentos de entrada, correspondientes con los valores de D y L
+    if(argc != 3)
+    {
+        perror("Número de argumentos introducido incorrecto.\n");
+        printf("Formato correcto: %s <valor_D> <valor_L>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    // inicializamos los parámetros con los argumentos de entrada que se nos proporcionan
+    D = atoi(argv[1]);
+    // valor para R
+    if(D <= CLS)
+    {
+        R = ceil(L[atoi(argv[2])] * CLS / D);
+    }
+    else
+    {
+        R = L[atoi(argv[2])];
+    }
 
     /// 1. Reservas de memoria
     ind = (int*)malloc(R * sizeof(int));
@@ -62,7 +86,7 @@ int main() {
     srand(time(NULL));  // Instrucción que inicializa el generador de números aleatorios
     for(int i = 0; i < R*D ; i++)
     {
-        A[ind[i]] = (double)rand()/RAND_MAX;
+        A[ind[i]] = ((double)rand()/RAND_MAX + 1) * pow(-1, rand() %2);
         printf(" %0.2lf\n", A[i]);
     }
     printf("\n\n");
